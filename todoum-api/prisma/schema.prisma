@@ -1,0 +1,31 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Todo {
+  id        Int        @id @default(autoincrement())
+  title     String
+  done      Boolean    @default(false)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  parent    LinkTodo[] @relation("ParentTodo")
+  child     LinkTodo[] @relation("ChildTodo")
+}
+
+model LinkTodo {
+  id        Int      @id @default(autoincrement())
+  parentId  Int
+  childId   Int
+  parent    Todo     @relation("ParentTodo", fields: [parentId], references: [id], onDelete: Cascade)
+  child     Todo     @relation("ChildTodo", fields: [childId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
