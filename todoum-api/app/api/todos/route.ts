@@ -4,47 +4,60 @@ import { NextResponse } from 'next/server';
 const baseUrl = process.env.BASE_URL || 'http://localhost:3000/api/todos';
 
 // Helper function to create hypermedia links
-function createTodoLinks(id: number, hasSubtasks: boolean) {
-    const links: { self: string; subtasks?: string } = {
+function createTodoLinks(id: number, hasSubtasks: boolean, hasParent: boolean, parentId?: number) {
+    const links: { self: string; subtasks?: string; parent?: string } = {
         self: `${baseUrl}/${id}`,
     };
+
+    // Ajout du lien pour les sous-tâches si elles existent
     if (hasSubtasks) {
-        links.subtasks = `${baseUrl}/${id}/subtasks`;
+        links.subtasks = `${baseUrl}/${id}/subtasks`; // Lien vers les sous-tâches
     }
+
+    // Ajout du lien pour la tâche parente si elle existe
+    if (hasParent) {
+        links.parent = `${baseUrl}/${parentId}`; // Lien vers la tâche parente
+    }
+
     return links;
 }
 
 // Fetch all Todos with their hypermedia links
-export async function GET() {
+export async function GET(req: Request) {
     try {
+        // Récupérer le paramètre 'fetchAll' depuis l'URL de la requête
+        const url = new URL(req.url);
+        const fetchAll = url.searchParams.get("fetchAll") === "true"; // Si fetchAll est 'true', nous ne filtrons pas
+
         const todos = await prisma.todo.findMany({
-            include: {
-                child: { // Include the child links
-                    include: { child: true } // Nested include to fetch the actual child Todo data
-                }
-            }
+            include: { child: true, parent: true }, // Inclure les sous-tâches et les tâches parent
         });
 
-        // Ensure todos is a valid array
-        const todosWithLinks = (todos || []).map(todo => ({
+        // Si fetchAll est vrai, on retourne toutes les tâches sans filtrage
+        const filteredTodos = fetchAll
+            ? todos
+            : todos.filter(todo => todo.child.length === 0);
+
+        // Mapper les tâches filtrées pour inclure les liens
+        const todosWithLinks = filteredTodos.map(todo => ({
             id: todo.id,
             title: todo.title,
             done: todo.done,
             createdAt: todo.createdAt,
             updatedAt: todo.updatedAt,
             links: createTodoLinks(
-                todo.id,
-                Array.isArray(todo.child) && todo.child.length > 0
-            ),
-            subtasks: todo.child.map(link => link.child) // Map to include actual child Todos
+                todo.id, todo.parent.length > 0, todo.child.length > 0, todo.child.length > 0 ? todo.child[0].parentId : undefined
+            )
         }));
 
         return NextResponse.json(todosWithLinks, { status: 200 });
-    } catch (error : any) {
+    } catch (error: any) {
         console.error("Erreur lors de l'exécution de prisma.todo.findMany:", error.message || error);
         return NextResponse.json({ error: 'Erreur lors de la récupération des todos' }, { status: 500 });
     }
 }
+
+
 
 
 // Create a new Todo with hypermedia links
@@ -58,6 +71,7 @@ export async function POST(request: Request) {
 
         const todo = await prisma.todo.create({
             data: { title },
+            include: { child: true, parent: true },
         });
 
         // If there is a parentId, create a link for this sub-task relationship
@@ -68,13 +82,28 @@ export async function POST(request: Request) {
                     childId: todo.id,
                 },
             });
+
+            // Update the parent task to mark it as not done
+            await prisma.todo.update({
+                where: { id: parentId },
+                data: {
+                    done: false,
+                },
+            });
         }
 
+        const hasParent = parentId !== undefined;
+
         return NextResponse.json({
-            ...todo,
-            links: createTodoLinks(todo.id, false), // Initially, no subtasks
+            id: todo.id,
+            title: todo.title,
+            done: todo.done,
+            createdAt: todo.createdAt,
+            updatedAt: todo.updatedAt,
+            links: createTodoLinks(todo.id, false, hasParent, parentId),
         }, { status: 201 });
     } catch (error) {
         return NextResponse.json({ error: 'Error creating todo' }, { status: 500 });
     }
 }
+
