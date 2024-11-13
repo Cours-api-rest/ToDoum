@@ -42,38 +42,42 @@ export interface Payment {
   createdAt: Date;
   title: string;
   done: boolean;
+  parentId?: string;
 }
 
 const data: Payment[] = [
   {
-    id: "m5gr84i9",
-    title: "ken99@yahoo.com",
+    id: "parent1",
+    title: "Task Parent 1",
     done: false,
     createdAt: new Date("2021-01-01"),
   },
   {
-    id: "3u1reuv4",
-    title: "Abe45@gmail.com",
+    id: "subtask1",
+    title: "Subtask 1 of Parent 1",
     done: false,
-    createdAt: new Date("2021-01-02"),
+    createdAt: new Date("2021-01-01"),
+    parentId: "parent1",
   },
   {
-    id: "derv1ws0",
-    title: "Monserrat44@gmail.com",
+    id: "subtask2",
+    title: "Subtask 2 of Parent 1",
+    done: false,
+    createdAt: new Date("2021-01-02"),
+    parentId: "parent1",
+  },
+  {
+    id: "parent2",
+    title: "Task Parent 2",
     done: false,
     createdAt: new Date("2021-01-03"),
   },
   {
-    id: "5kma53ae",
-    title: "Silas22@gmail.com",
+    id: "subtask3",
+    title: "Subtask 1 of Parent 2",
     done: false,
     createdAt: new Date("2021-01-04"),
-  },
-  {
-    id: "bhqecj4p",
-    title: "carmella@hotmail.com",
-    done: false,
-    createdAt: new Date("2021-01-05"),
+    parentId: "parent2",
   },
 ];
 
@@ -91,14 +95,47 @@ const columns = [
         ariaLabel: "Select all",
       }),
     cell: ({ row }) => {
+      const toggleSelection = (value: boolean) => {
+        row.toggleSelected(value);
+        row.original.done = value;
+
+        if (!row.original.parentId) {
+          const parentId = row.original.id;
+          data.forEach((task) => {
+            if (task.parentId === parentId) {
+              task.done = value;
+              const childRow = table
+                .getRowModel()
+                .rows.find((r) => r.original.id === task.id);
+              if (childRow) {
+                childRow.toggleSelected(value);
+              }
+            }
+          });
+        } else {
+          const parentId = row.original.parentId;
+          const allSubtasksChecked = data
+            .filter((task) => task.parentId === parentId)
+            .every((subtask) => subtask.done);
+
+          const parentTask = data.find((task) => task.id === parentId);
+          if (parentTask) {
+            parentTask.done = allSubtasksChecked;
+            const parentRow = table
+              .getRowModel()
+              .rows.find((r) => r.original.id === parentId);
+            if (parentRow) {
+              parentRow.toggleSelected(allSubtasksChecked);
+            }
+          }
+        }
+        console.log("Checkbox clicked", row.original);
+      };
+
       return h(Checkbox, {
         checked: row.getIsSelected(),
         ariaLabel: "Select row",
-        "onUpdate:checked": (value) => {
-          row.toggleSelected(!!value);
-          row.original.done = !!value;
-          console.log("Checkbox clicked", row.original);
-        },
+        "onUpdate:checked": (value) => toggleSelection(!!value),
       });
     },
     enableSorting: false,
@@ -116,7 +153,15 @@ const columns = [
         () => ["Title", h(ArrowUpDown, { class: "ml-2 h-4 w-4" })]
       );
     },
-    cell: ({ row }) => h("div", { class: "lowercase" }, row.getValue("title")),
+    cell: ({ row }) => {
+      const isSubtask = !!row.original.parentId;
+      const indentation = isSubtask ? "ml-6" : "";
+      return h(
+        "div",
+        { class: `${indentation} lowercase` },
+        row.getValue("title")
+      );
+    },
   }),
   columnHelper.accessor("createdAt", {
     header: () => h("div", { class: "text-right" }, "Created At"),
@@ -216,7 +261,7 @@ const table = useVueTable({
       <div class="flex gap-2 items-center py-4">
         <Input
           class="max-w-sm"
-          placeholder="Filter titles..."
+          placeholder="Search Tasks..."
           :model-value="table.getColumn('title')?.getFilterValue() as string"
           @update:model-value="table.getColumn('title')?.setFilterValue($event)"
         />
