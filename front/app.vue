@@ -27,7 +27,7 @@ import {
   getSortedRowModel,
   useVueTable,
 } from "@tanstack/vue-table";
-import { ArrowUpDown, ChevronDown, Trash } from "lucide-vue-next";
+import { ArrowUpDown, ChevronDown, Edit, Trash } from "lucide-vue-next";
 import { h, ref } from "vue";
 import { cn, valueUpdater } from "~/utils/utils";
 import {
@@ -42,44 +42,40 @@ export interface Payment {
   createdAt: Date;
   title: string;
   done: boolean;
-  parentId?: string;
 }
 
-const data: Payment[] = [
+const data = ref<Payment[]>([
   {
-    id: "parent1",
-    title: "Task Parent 1",
+    id: "m5gr84i9",
+    title: "ken99@yahoo.com",
     done: false,
     createdAt: new Date("2021-01-01"),
   },
   {
-    id: "subtask1",
-    title: "Subtask 1 of Parent 1",
-    done: false,
-    createdAt: new Date("2021-01-01"),
-    parentId: "parent1",
-  },
-  {
-    id: "subtask2",
-    title: "Subtask 2 of Parent 1",
+    id: "3u1reuv4",
+    title: "Abe45@gmail.com",
     done: false,
     createdAt: new Date("2021-01-02"),
-    parentId: "parent1",
   },
   {
-    id: "parent2",
-    title: "Task Parent 2",
+    id: "derv1ws0",
+    title: "Monserrat44@gmail.com",
     done: false,
     createdAt: new Date("2021-01-03"),
   },
   {
-    id: "subtask3",
-    title: "Subtask 1 of Parent 2",
+    id: "5kma53ae",
+    title: "Silas22@gmail.com",
     done: false,
     createdAt: new Date("2021-01-04"),
-    parentId: "parent2",
   },
-];
+  {
+    id: "bhqecj4p",
+    title: "carmella@hotmail.com",
+    done: false,
+    createdAt: new Date("2021-01-05"),
+  },
+]);
 
 const columnHelper = createColumnHelper<Payment>();
 
@@ -95,53 +91,15 @@ const columns = [
         ariaLabel: "Select all",
       }),
     cell: ({ row }) => {
-      const toggleSelection = (value: boolean) => {
-        row.toggleSelected(value);
-        row.original.done = value;
-
-        if (!row.original.parentId) {
-          const parentId = row.original.id;
-          data.forEach((task) => {
-            if (task.parentId === parentId) {
-              task.done = value;
-              const childRow = table
-                .getRowModel()
-                .rows.find((r) => r.original.id === task.id);
-              if (childRow) {
-                childRow.toggleSelected(value);
-              }
-            }
-          });
-        } else {
-          const parentId = row.original.parentId;
-          const allSubtasksChecked = data
-            .filter((task) => task.parentId === parentId)
-            .every((subtask) => subtask.done);
-
-          const parentTask = data.find((task) => task.id === parentId);
-          if (parentTask) {
-            parentTask.done = allSubtasksChecked;
-            const parentRow = table
-              .getRowModel()
-              .rows.find((r) => r.original.id === parentId);
-            if (parentRow) {
-              parentRow.toggleSelected(allSubtasksChecked);
-            }
-          }
-        }
-        console.log("Checkbox clicked", row.original);
-      };
-
       return h(Checkbox, {
         checked: row.getIsSelected(),
+        "onUpdate:checked": (value) => row.toggleSelected(!!value),
         ariaLabel: "Select row",
-        "onUpdate:checked": (value) => toggleSelection(!!value),
       });
     },
     enableSorting: false,
     enableHiding: false,
   }),
-
   columnHelper.accessor("title", {
     header: ({ column }) => {
       return h(
@@ -153,34 +111,32 @@ const columns = [
         () => ["Title", h(ArrowUpDown, { class: "ml-2 h-4 w-4" })]
       );
     },
-    cell: ({ row }) => {
-      const isSubtask = !!row.original.parentId;
-      const indentation = isSubtask ? "ml-6" : "";
-      return h(
-        "div",
-        { class: `${indentation} lowercase` },
-        row.getValue("title")
-      );
-    },
+    cell: ({ row }) => h("div", { class: "lowercase" }, row.getValue("title")),
   }),
   columnHelper.accessor("createdAt", {
     header: () => h("div", { class: "text-right" }, "Created At"),
     cell: ({ row }) => {
       const createdAt = row.getValue("createdAt") as Date;
-      return h(
-        "div",
-        { class: "text-right font-medium" },
-        createdAt.toLocaleDateString()
-      );
+      const formatted = new Intl.DateTimeFormat("en-US").format(createdAt);
+      return h("div", { class: "text-right font-medium" }, formatted);
     },
   }),
   columnHelper.display({
-    id: "actions",
-    enableHiding: false,
+    id: "edit",
+    header: "Edit",
     cell: ({ row }) => {
-      const payment = row.original;
-      return h("div", { class: "relative" });
+      return h(Edit, {
+        class: "cursor-pointer bg-primary-foreground",
+        onClick: () => {
+          editTask(row.original);
+          console.log("Edit row:", row.original);
+        },
+        ariaLabel: "Edit row",
+        size: 20,
+      });
     },
+    enableSorting: false,
+    enableHiding: false,
   }),
   columnHelper.display({
     id: "delete",
@@ -215,9 +171,10 @@ const columnFilters = ref<ColumnFiltersState>([]);
 const columnVisibility = ref<VisibilityState>({});
 const rowSelection = ref({});
 const expanded = ref<ExpandedState>({});
+const editingTask = ref<Payment | null>(null);
 
 const table = useVueTable({
-  data,
+  data: data.value,
   columns,
   getCoreRowModel: getCoreRowModel(),
   getPaginationRowModel: getPaginationRowModel(),
@@ -249,10 +206,30 @@ const table = useVueTable({
       return expanded.value;
     },
     columnPinning: {
-      left: ["Done"],
+      left: ["status"],
     },
   },
 });
+
+function editTask(task: Payment) {
+  editingTask.value = { ...task };
+}
+
+function saveTask() {
+  if (editingTask.value) {
+    const index = data.value.findIndex(
+      (task) => task.id === editingTask.value!.id
+    );
+    if (index !== -1) {
+      data.value[index] = editingTask.value;
+    }
+    editingTask.value = null;
+  }
+}
+
+function cancelEdit() {
+  editingTask.value = null;
+}
 </script>
 
 <template>
@@ -376,6 +353,39 @@ const table = useVueTable({
           >
             Next
           </Button>
+        </div>
+      </div>
+    </div>
+    <div
+      v-if="editingTask"
+      class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
+    >
+      <div class="bg-white p-4 rounded-md">
+        <h2>Edit Task</h2>
+        <div class="mb-4">
+          <label for="title" class="block text-sm font-medium text-gray-700"
+            >Title</label
+          >
+          <input
+            id="title"
+            v-model="editingTask.title"
+            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+          />
+        </div>
+        <div class="mb-4">
+          <label for="done" class="block text-sm font-medium text-gray-700"
+            >Done</label
+          >
+          <input
+            id="done"
+            type="checkbox"
+            v-model="editingTask.done"
+            class="mt-1 block"
+          />
+        </div>
+        <div class="flex justify-end space-x-2">
+          <Button variant="outline" @click="cancelEdit">Cancel</Button>
+          <Button variant="default" @click="saveTask">Save</Button>
         </div>
       </div>
     </div>
