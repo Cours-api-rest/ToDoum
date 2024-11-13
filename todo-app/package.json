@@ -1,0 +1,22 @@
+{
+  "name": "nuxt-app",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare"
+  },
+  "dependencies": {
+    "@nuxt/ui": "^2.19.2",
+    "axios": "^1.7.7",
+    "globby": "^14.0.2",
+    "naive-ui": "^2.40.1",
+    "nuxt": "^3.14.159",
+    "unicorn-magic": "^0.1.0",
+    "vue": "latest",
+    "vue-router": "latest"
+  }
+}

@@ -25,6 +25,8 @@ function createTodoLinks(id: number, hasSubtasks: boolean, hasParent: boolean, p
 // Fetch all Todos with their hypermedia links
 export async function GET(req: Request) {
     try {
+
+
         // Récupérer le paramètre 'fetchAll' depuis l'URL de la requête
         const url = new URL(req.url);
         const fetchAll = url.searchParams.get("fetchAll") === "true"; // Si fetchAll est 'true', nous ne filtrons pas
