@@ -126,18 +126,24 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
             for (const parent of parentLinks) {
                 if (doneStatus) {
+
+                    const subtasks = await prisma.todo.findMany({
+                        where: { id: { in: parent.parent.map(link => link.childId) } },
+                    });
+
                     // Si `done` est passé à true, vérifier si tous les enfants sont `done`
-                    const allDone = parent.child.every(child => child.done);
+                    const allDone = subtasks.every(subtask => subtask.done);
                     if (allDone && !parent.done) {
                         await prisma.todo.update({
                             where: { id: parent.id },
                             data: { done: true },
                         });
 
-                        if (parent.parent.length > 0) {
+                        if (parent.child.length > 0) {
                             // Continuer la mise à jour vers le haut de la hiérarchie
-                            for (const child of parent.parent) {
-                                // await updateParentsRecursively(child.childId, true);
+                            for (const child of parent.child) {
+                                console.log(child);
+                                await updateParentsRecursively(child.parentId, true);
                             }
                         }
                     }
