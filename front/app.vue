@@ -49,32 +49,32 @@ async function addTask() {
 function handleDeleteTask(taskId: string) {
   const index = tasks.value.findIndex((t) => t.id === taskId);
   if (index !== -1) {
-    const taskToDelete = tasks.value[index];
+    // const taskToDelete = tasks.value[index];
 
-    // Suppression de la tâche via l'API
-    deleteTodo(taskId).then(() => {
-      tasks.value.splice(index, 1); // Mise à jour de la tâche principale
-      if (taskToDelete.parentId) {
-        // Si c'est une sous-tâche, on la retire de l'array children de la tâche parente
-        const parentTask = tasks.value.find((t) => t.id === taskToDelete.parentId);
-        if (parentTask && parentTask.children) {
-          const childIndex = parentTask.children.findIndex(c => c.id === taskId);
-          if (childIndex !== -1) {
-            parentTask.children.splice(childIndex, 1);
-          }
-        }
-      }
+    // // Suppression de la tâche via l'API
+    // deleteTodo(taskId).then(() => {
+    //   tasks.value.splice(index, 1); // Mise à jour de la tâche principale
+    //   if (taskToDelete.parentId) {
+    //     // Si c'est une sous-tâche, on la retire de l'array children de la tâche parente
+    //     const parentTask = tasks.value.find((t) => t.id === taskToDelete.parentId);
+    //     if (parentTask && parentTask.children) {
+    //       const childIndex = parentTask.children.findIndex(c => c.id === taskId);
+    //       if (childIndex !== -1) {
+    //         parentTask.children.splice(childIndex, 1);
+    //       }
+    //     }
+    //   }
 
-      // Vérifier si la tâche parente n'a plus de sous-tâches et la passer en mode simple
-      if (taskToDelete.children && taskToDelete.children.length === 0 && taskToDelete.parentId) {
-        const parentTask = tasks.value.find((t) => t.id === taskToDelete.parentId);
-        if (parentTask && parentTask.children) {
-          parentTask.children = [];
-        }
-      }
-    }).catch((error) => {
-      console.error("Failed to delete task:", error);
-    });
+    //   // Vérifier si la tâche parente n'a plus de sous-tâches et la passer en mode simple
+    //   if (taskToDelete.children && taskToDelete.children.length === 0 && taskToDelete.parentId) {
+    //     const parentTask = tasks.value.find((t) => t.id === taskToDelete.parentId);
+    //     if (parentTask && parentTask.children) {
+    //       parentTask.children = [];
+    //     }
+    //   }
+    // }).catch((error) => {
+    //   console.error("Failed to delete task:", error);
+    // });
   }
 }
 
