@@ -7,15 +7,16 @@
         </Button>
       </div>
 
-      <input type="checkbox" v-model="props.task.done" @change="toggleTodoStatus(props.task.id, props.task.done)" />
+      <input type="checkbox" v-model="props.task.done" @change="toggleDone" />
 
       <span v-if="!isEditing" @click="enableEditing" class="task-title">
         {{ props.task.title }}
       </span>
       <input v-else v-model="editableTitle" @blur="saveTitle" @keyup.enter="saveTitle"
-        :class="['editable-input', { 'editing': isEditing }]" />
+             :class="['editable-input', { 'editing': isEditing }]" />
 
       <button @click="deleteTodoWithToast">Supprimer</button>
+      <button @click="addChildTodo">Ajouter sous-tâche</button>
     </div>
 
     <div v-if="haveChildren">
@@ -30,8 +31,8 @@
 
 <script setup>
 import { ref } from 'vue';
-import { fetchTodos, updateTodo, toggleTodoStatus, deleteTodo } from '~/services/todoService';
-import { defineProps } from 'vue';
+import { fetchTodos, updateTodo, toggleTodoStatus, deleteTodo, createTodo } from '~/services/todoService';
+import { defineProps, defineEmits } from 'vue';
 import { ChevronDown, ChevronRight } from "lucide-vue-next";
 
 const props = defineProps({
@@ -40,6 +41,8 @@ const props = defineProps({
     required: true,
   },
 });
+
+const emits = defineEmits(['delete-task', 'add-subtask']);
 
 const opened = ref(false);
 const isEditing = ref(false);
@@ -58,6 +61,7 @@ const saveTitle = async () => {
       await updateTodo(props.task.id, { title: editableTitle.value });
       props.task.title = editableTitle.value;
     } catch (error) {
+      console.error("Failed to update task title:", error);
     }
   }
 };
@@ -68,14 +72,38 @@ const toggleChildren = async () => {
     try {
       props.task.children = await fetchTodos(props.task.id);
     } catch (error) {
+      console.error("Failed to fetch subtasks:", error);
     }
+  }
+};
+
+const toggleDone = async () => {
+  try {
+    await toggleTodoStatus(props.task.id, props.task.done);
+  } catch (error) {
+    console.error("Failed to toggle task status:", error);
   }
 };
 
 const deleteTodoWithToast = async () => {
   try {
     await deleteTodo(props.task.id);
+    emits('delete-task', props.task.id);
   } catch (error) {
+    console.error("Failed to delete task:", error);
+  }
+};
+
+const addChildTodo = async () => {
+  try {
+    const childTodo = await createTodo({ title: 'Nouvelle sous-tâche', parentId: props.task.id });
+    if (!props.task.children) {
+      props.task.children = [];
+    }
+    props.task.children.push(childTodo);
+    emits('add-subtask', childTodo);
+  } catch (error) {
+    console.error("Failed to add subtask:", error);
   }
 };
 </script>
