@@ -1,11 +1,11 @@
-const animate = require("tailwindcss-animate")
+const animate = require("tailwindcss-animate");
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: ["class"],
   safelist: ["dark"],
   prefix: "",
-  
+
   theme: {
     container: {
       center: true,
@@ -67,11 +67,26 @@ module.exports = {
         },
         "collapsible-down": {
           from: { height: 0 },
-          to: { height: 'var(--radix-collapsible-content-height)' },
+          to: { height: "var(--radix-collapsible-content-height)" },
         },
         "collapsible-up": {
-          from: { height: 'var(--radix-collapsible-content-height)' },
+          from: { height: "var(--radix-collapsible-content-height)" },
           to: { height: 0 },
+        },
+
+        keyframes: {
+          "accordion-down": {
+            from: { height: 0 },
+            to: { height: "var(--radix-accordion-content-height)" },
+          },
+          "accordion-up": {
+            from: { height: "var(--radix-accordion-content-height)" },
+            to: { height: 0 },
+          },
+        },
+        animation: {
+          "accordion-down": "accordion-down 0.2s ease-out",
+          "accordion-up": "accordion-up 0.2s ease-out",
         },
       },
       animation: {
@@ -83,4 +98,4 @@ module.exports = {
     },
   },
   plugins: [animate],
-}
+};

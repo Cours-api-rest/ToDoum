@@ -1,51 +1,22 @@
 <script setup lang="ts">
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
-import type {
-  ColumnFiltersState,
-  ExpandedState,
-  SortingState,
-  VisibilityState,
-} from "@tanstack/vue-table";
+import {
+  ChevronDown,
+  ChevronRight,
+  Edit,
+  PlusCircle,
+  Trash,
+} from "lucide-vue-next";
+import { ref } from "vue";
 
-import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  createColumnHelper,
-  FlexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  getSortedRowModel,
-  useVueTable,
-} from "@tanstack/vue-table";
-import { ArrowUpDown, ChevronDown, Edit, Trash } from "lucide-vue-next";
-import { h, ref } from "vue";
-import { cn, valueUpdater } from "~/utils/utils";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "./components/ui/dropdown-menu";
-
-export interface tasks {
+export interface Task {
   id: string;
-  createdAt: Date;
   title: string;
   done: boolean;
+  createdAt: Date;
   parentId?: string;
 }
 
-const data: tasks[] = [
+const tasks = ref<Task[]>([
   {
     id: "parent1",
     title: "Task Parent 1",
@@ -79,374 +50,200 @@ const data: tasks[] = [
     createdAt: new Date("2021-01-04"),
     parentId: "parent2",
   },
-];
+]);
 
-const columnHelper = createColumnHelper<tasks>();
+const expandedTasks = ref<Record<string, boolean>>({});
+const editingTask = ref<Task | null>(null);
+const newTaskTitle = ref(""); // Title of the new task being added
+const newTaskParentId = ref<string | null>(null); // Determines if it's a parent or subtask
+const addingTask = ref(false); // Controls if the add form should be displayed
 
-const columns = [
-  columnHelper.display({
-    id: "select",
-    header: ({ table }) =>
-      h(Checkbox, {
-        checked:
-          table.getIsAllPageRowsSelected() ||
-          (table.getIsSomePageRowsSelected() && "indeterminate"),
-        "onUpdate:checked": (value) => table.toggleAllPageRowsSelected(!!value),
-        ariaLabel: "Select all",
-      }),
-    cell: ({ row }) => {
-      const toggleSelection = (value: boolean) => {
-        row.toggleSelected(value);
-        row.original.done = value;
+function toggleExpand(taskId: string) {
+  expandedTasks.value[taskId] = !expandedTasks.value[taskId];
+}
 
-        if (!row.original.parentId) {
-          const parentId = row.original.id;
-          data.forEach((task) => {
-            if (task.parentId === parentId) {
-              task.done = value;
-              const childRow = table
-                .getRowModel()
-                .rows.find((r) => r.original.id === task.id);
-              if (childRow) {
-                childRow.toggleSelected(value);
-              }
-            }
-          });
-        } else {
-          const parentId = row.original.parentId;
-          const allSubtasksChecked = data
-            .filter((task) => task.parentId === parentId)
-            .every((subtask) => subtask.done);
-
-          const parentTask = data.find((task) => task.id === parentId);
-          if (parentTask) {
-            parentTask.done = allSubtasksChecked;
-            const parentRow = table
-              .getRowModel()
-              .rows.find((r) => r.original.id === parentId);
-            if (parentRow) {
-              parentRow.toggleSelected(allSubtasksChecked);
-            }
-          }
-        }
-        console.log("Checkbox clicked", row.original);
-      };
-
-      return h(Checkbox, {
-        checked: row.getIsSelected(),
-        ariaLabel: "Select row",
-        "onUpdate:checked": (value) => toggleSelection(!!value),
-      });
-    },
-    enableSorting: false,
-    enableHiding: false,
-  }),
-
-  columnHelper.accessor("title", {
-    header: ({ column }) => {
-      return h(
-        Button,
-        {
-          variant: "ghost",
-          onClick: () => column.toggleSorting(column.getIsSorted() === "asc"),
-        },
-        () => ["Title", h(ArrowUpDown, { class: "ml-2 h-4 w-4" })]
-      );
-    },
-    cell: ({ row }) => {
-      const isSubtask = !!row.original.parentId;
-      const indentation = isSubtask ? "ml-6" : "";
-      return h(
-        "div",
-        { class: `${indentation} lowercase` },
-        row.getValue("title")
-      );
-    },
-  }),
-  columnHelper.accessor("createdAt", {
-    header: () => h("div", { class: "text-right" }, "Created At"),
-    cell: ({ row }) => {
-      const createdAt = row.getValue("createdAt") as Date;
-      return h(
-        "div",
-        { class: "text-right font-medium" },
-        createdAt.toLocaleDateString()
-      );
-    },
-  }),
-  columnHelper.display({
-    id: "edit",
-    header: "Edit",
-    cell: ({ row }) => {
-      return h(Edit, {
-        class: "cursor-pointer bg-primary-foreground",
-        onClick: () => {
-          editTask(row.original);
-          console.log("Edit row:", row.original);
-        },
-        ariaLabel: "Edit row",
-        size: 20,
-      });
-    },
-    enableSorting: false,
-    enableHiding: false,
-  }),
-  columnHelper.display({
-    id: "actions",
-    enableHiding: false,
-    cell: ({ row }) => {
-      const tasks = row.original;
-      return h("div", { class: "relative" });
-    },
-  }),
-  columnHelper.display({
-    id: "delete",
-    header: ({ table }) =>
-      h(Trash, {
-        icon: "trash",
-        onClick: () => {
-          const selectedRows = table.getFilteredSelectedRowModel().rows;
-          console.log("Delete selected rows:", selectedRows);
-        },
-        ariaLabel: "Delete selected rows",
-        size: 20,
-      }),
-    cell: ({ row }) => {
-      return h(Trash, {
-        icon: "trash",
-        onClick: () => {
-          console.log("Delete row:", row.original);
-        },
-        ariaLabel: "Delete row",
-        class: "cursor-pointer",
-        size: 20,
-      });
-    },
-    enableSorting: false,
-    enableHiding: false,
-  }),
-];
-
-const sorting = ref<SortingState>([]);
-const editingTask = ref<tasks | null>(null);
-const columnFilters = ref<ColumnFiltersState>([]);
-const columnVisibility = ref<VisibilityState>({});
-const rowSelection = ref({});
-const expanded = ref<ExpandedState>({});
-
-const table = useVueTable({
-  data,
-  columns,
-  getCoreRowModel: getCoreRowModel(),
-  getPaginationRowModel: getPaginationRowModel(),
-  getSortedRowModel: getSortedRowModel(),
-  getFilteredRowModel: getFilteredRowModel(),
-  getExpandedRowModel: getExpandedRowModel(),
-  onSortingChange: (updaterOrValue) => valueUpdater(updaterOrValue, sorting),
-  onColumnFiltersChange: (updaterOrValue) =>
-    valueUpdater(updaterOrValue, columnFilters),
-  onColumnVisibilityChange: (updaterOrValue) =>
-    valueUpdater(updaterOrValue, columnVisibility),
-  onRowSelectionChange: (updaterOrValue) =>
-    valueUpdater(updaterOrValue, rowSelection),
-  onExpandedChange: (updaterOrValue) => valueUpdater(updaterOrValue, expanded),
-  state: {
-    get sorting() {
-      return sorting.value;
-    },
-    get columnFilters() {
-      return columnFilters.value;
-    },
-    get columnVisibility() {
-      return columnVisibility.value;
-    },
-    get rowSelection() {
-      return rowSelection.value;
-    },
-    get expanded() {
-      return expanded.value;
-    },
-    columnPinning: {
-      left: ["Done"],
-    },
-  },
-});
-
-function editTask(task: tasks) {
+function editTask(task: Task) {
   editingTask.value = { ...task };
 }
 
 function saveTask() {
   if (editingTask.value) {
-    const index = data.findIndex((task) => task.id === editingTask.value!.id);
-    if (index !== -1) {
-      data[index] = { ...editingTask.value };
-    }
+    const index = tasks.value.findIndex(
+      (task) => task.id === editingTask.value!.id
+    );
+    if (index !== -1) tasks.value[index] = { ...editingTask.value };
     editingTask.value = null;
   }
+}
+
+function deleteTask(task: Task) {
+  tasks.value = tasks.value.filter(
+    (t) => t.id !== task.id && t.parentId !== task.id
+  );
 }
 
 function cancelEdit() {
   editingTask.value = null;
 }
+
+function getSubtasks(parentId: string) {
+  return tasks.value.filter((task) => task.parentId === parentId);
+}
+
+function addTask() {
+  const id = `task${Date.now()}`;
+  tasks.value.push({
+    id,
+    title: newTaskTitle.value,
+    done: false,
+    createdAt: new Date(),
+    parentId: newTaskParentId.value || undefined,
+  });
+  newTaskTitle.value = "";
+  newTaskParentId.value = null;
+  addingTask.value = false; // Reset addingTask to hide the form
+}
+
+function startNewParentTask() {
+  newTaskParentId.value = null; // Setting this to null indicates a parent task
+  addingTask.value = true;
+}
+
+function startNewSubtask(parentId: string) {
+  newTaskParentId.value = parentId; // Set the parent ID for the subtask
+  addingTask.value = true;
+}
 </script>
 
 <template>
-  <main class="flex justify-center items-center">
-    <div class="w-full p-10 max-w-[800px]">
-      <div class="flex gap-2 items-center py-4">
-        <Input
-          class="max-w-sm"
-          placeholder="Search Tasks..."
-          :model-value="table.getColumn('title')?.getFilterValue() as string"
-          @update:model-value="table.getColumn('title')?.setFilterValue($event)"
+  <div class="w-full flex justify-center mt-5">
+    <main class="rounded-md w-full p-10 max-w-[800px]">
+      <!-- Button to add a new parent task -->
+      <div class="mb-4">
+        <button
+          @click="startNewParentTask"
+          class="flex items-center bg-green-500 text-white px-4 py-2 rounded-md"
+        >
+          <PlusCircle class="mr-2 h-5 w-5" /> Add New Parent Task
+        </button>
+      </div>
+
+      <!-- Task table -->
+      <table class="table-auto w-full border border-gray-300 rounded-md">
+        <thead>
+          <tr>
+            <th class="p-2 border-b">Expand</th>
+            <th class="p-2 border-b">Task</th>
+            <th class="p-2 border-b">Done</th>
+            <th class="p-2 border-b">Edit</th>
+            <th class="p-2 border-b">Delete</th>
+            <th class="p-2 border-b">Add Subtask</th>
+          </tr>
+        </thead>
+        <tbody>
+          <template v-for="task in tasks" :key="task.id">
+            <!-- Parent Task Row -->
+            <tr v-if="!task.parentId">
+              <td class="p-2 text-center">
+                <button @click="toggleExpand(task.id)">
+                  <component
+                    :is="expandedTasks[task.id] ? ChevronDown : ChevronRight"
+                    class="h-4 w-4"
+                  />
+                </button>
+              </td>
+              <td class="p-2">{{ task.title }}</td>
+              <td class="p-2 text-center">
+                <input type="checkbox" v-model="task.done" />
+              </td>
+              <td class="p-2 text-center">
+                <button @click="editTask(task)">
+                  <Edit class="h-4 w-4" />
+                </button>
+              </td>
+              <td class="p-2 text-center">
+                <button @click="deleteTask(task)">
+                  <Trash class="h-4 w-4" />
+                </button>
+              </td>
+              <td class="p-2 text-center">
+                <button @click="startNewSubtask(task.id)">
+                  <PlusCircle class="h-4 w-4" />
+                </button>
+              </td>
+            </tr>
+
+            <!-- Subtask Rows -->
+            <tr
+              v-for="subtask in getSubtasks(task.id)"
+              v-if="expandedTasks[task.id]"
+              :key="subtask.id"
+            >
+              <td class="p-2"></td>
+              <td class="p-2 pl-6">{{ subtask.title }}</td>
+              <td class="p-2 text-center">
+                <input type="checkbox" v-model="subtask.done" />
+              </td>
+              <td class="p-2 text-center">
+                <button @click="editTask(subtask)">
+                  <Edit class="h-4 w-4" />
+                </button>
+              </td>
+              <td class="p-2 text-center">
+                <button @click="deleteTask(subtask)">
+                  <Trash class="h-4 w-4" />
+                </button>
+              </td>
+              <td class="p-2"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+
+      <!-- Input for new task (Parent or Subtask) -->
+      <div v-if="addingTask" class="mt-4 p-4 border rounded-md">
+        <h2 class="text-lg font-semibold">
+          {{ newTaskParentId ? "Add Subtask" : "Add New Parent Task" }}
+        </h2>
+        <input
+          type="text"
+          v-model="newTaskTitle"
+          placeholder="Enter task title"
+          class="w-full border p-2 rounded mt-2"
         />
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button variant="outline" class="ml-auto">
-              Columns <ChevronDown class="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuCheckboxItem
-              v-for="column in table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())"
-              :key="column.id"
-              class="capitalize"
-              :checked="column.getIsVisible()"
-              @update:checked="(value) => column.toggleVisibility(!!value)"
-            >
-              {{ column.id }}
-            </DropdownMenuCheckboxItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <button
+          @click="addTask"
+          class="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md"
+        >
+          Add Task
+        </button>
       </div>
-      <div class="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow
-              v-for="headerGroup in table.getHeaderGroups()"
-              :key="headerGroup.id"
-            >
-              <TableHead
-                v-for="header in headerGroup.headers"
-                :key="header.id"
-                :data-pinned="header.column.getIsPinned()"
-                :class="
-                  cn(
-                    { 'sticky bg-background/95': header.column.getIsPinned() },
-                    header.column.getIsPinned() === 'left'
-                      ? 'left-0'
-                      : 'right-0'
-                  )
-                "
-              >
-                <FlexRender
-                  v-if="!header.isPlaceholder"
-                  :render="header.column.columnDef.header"
-                  :props="header.getContext()"
-                />
-              </TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <template v-if="table.getRowModel().rows?.length">
-              <template v-for="row in table.getRowModel().rows" :key="row.id">
-                <TableRow :data-state="row.getIsSelected() && 'selected'">
-                  <TableCell
-                    v-for="cell in row.getVisibleCells()"
-                    :key="cell.id"
-                    :data-pinned="cell.column.getIsPinned()"
-                    :class="
-                      cn(
-                        {
-                          'sticky bg-background/95': cell.column.getIsPinned(),
-                        },
-                        cell.column.getIsPinned() === 'left'
-                          ? 'left-0'
-                          : 'right-0'
-                      )
-                    "
-                  >
-                    <FlexRender
-                      :render="cell.column.columnDef.cell"
-                      :props="cell.getContext()"
-                    />
-                  </TableCell>
-                </TableRow>
-                <TableRow v-if="row.getIsExpanded()">
-                  <TableCell :colspan="row.getAllCells().length">
-                    {{ row.original }}
-                  </TableCell>
-                </TableRow>
-              </template>
-            </template>
-            <TableRow v-else>
-              <TableCell :colspan="columns.length" class="h-24 text-center">
-                No results.
-              </TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
-      </div>
-      <div class="flex items-center justify-end space-x-2 py-4">
-        <div class="flex-1 text-sm text-muted-foreground">
-          {{ table.getFilteredSelectedRowModel().rows.length }} of
-          {{ table.getFilteredRowModel().rows.length }} row(s) selected.
-        </div>
-        <div class="space-x-2">
-          <Button
-            variant="outline"
-            size="sm"
-            :disabled="!table.getCanPreviousPage()"
-            @click="table.previousPage()"
-          >
-            Previous
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            :disabled="!table.getCanNextPage()"
-            @click="table.nextPage()"
-          >
-            Next
-          </Button>
-        </div>
-      </div>
-    </div>
-    <div
-      v-if="editingTask"
-      class="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50"
-    >
-      <div class="bg-white p-4 rounded-md">
-        <h2>Edit Task</h2>
-        <div class="mb-4">
-          <label for="title" class="block text-sm font-medium text-gray-700"
-            >Title</label
-          >
+
+      <!-- Edit Dialog -->
+      <div
+        v-if="editingTask"
+        class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center"
+      >
+        <div class="bg-white p-4 rounded-lg shadow-lg w-96">
+          <h2 class="text-lg font-bold mb-2">Edit Task</h2>
           <input
-            id="title"
+            type="text"
             v-model="editingTask.title"
-            class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+            class="w-full border p-2 rounded mb-4"
           />
-        </div>
-        <div class="mb-4">
-          <label for="done" class="block text-sm font-medium text-gray-700"
-            >Done</label
-          >
-          <input
-            id="done"
-            type="checkbox"
-            v-model="editingTask.done"
-            class="mt-1 block"
-          />
-        </div>
-        <div class="flex justify-end space-x-2">
-          <Button variant="outline" @click="cancelEdit">Cancel</Button>
-          <Button variant="default" @click="saveTask">Save</Button>
+          <div class="flex justify-end space-x-2">
+            <button @click="cancelEdit" class="px-4 py-2 bg-gray-300 rounded">
+              Cancel
+            </button>
+            <button
+              @click="saveTask"
+              class="px-4 py-2 bg-blue-500 text-white rounded"
+            >
+              Save
+            </button>
+          </div>
         </div>
       </div>
-    </div>
-  </main>
+    </main>
+  </div>
 </template>
