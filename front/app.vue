@@ -103,44 +103,42 @@ function addTask() {
   });
   newTaskTitle.value = "";
   newTaskParentId.value = null;
-  addingTask.value = false; // Reset addingTask to hide the form
+  addingTask.value = false;
 }
 
 function startNewParentTask() {
-  newTaskParentId.value = null; // Setting this to null indicates a parent task
+  newTaskParentId.value = null;
   addingTask.value = true;
 }
 
 function startNewSubtask(parentId: string) {
-  newTaskParentId.value = parentId; // Set the parent ID for the subtask
+  newTaskParentId.value = parentId;
   addingTask.value = true;
 }
 </script>
 
 <template>
   <div class="w-full flex justify-center mt-5">
-    <main class="rounded-md w-full p-10 max-w-[800px]">
-      <!-- Button to add a new parent task -->
+    <main class="rounded-t-md w-full p-10 max-w-[800px]">
       <div class="mb-4">
-        <button @click="startNewParentTask" class="flex items-center bg-green-500 text-white px-4 py-2 rounded-md">
+        <Button @click="startNewParentTask">
           <PlusCircle class="mr-2 h-5 w-5" /> Add New Main Task
-        </button>
+        </Button>
       </div>
 
       <div v-if="tasks.length === 0" class="text-center text-gray-500">
         No tasks found. Click the button above to add a new task.
       </div>
 
-      <div class="p-2 border border-gray-300 rounded-t-md text-center mt-4" v-else>
-        Total Tasks: {{ tasks.length }} | Completed: {{ tasks.filter((t) => t.done).length }}
+      <div
+        class="p-2 border border-gray-300 rounded-t-md text-center mt-4"
+        v-else
+      >
+        Total Tasks: {{ tasks.length }} | Completed:
+        {{ tasks.filter((t) => t.done).length }}
       </div>
 
-      <div class="w-full border border-gray-300 rounded-md">
-
-        <!-- <Task v-for="task in tasks" :key="task.id" :task="task" /> -->
-
-
-        <!-- Task table -->
+      <div class="w-full border border-gray-300 rounded-b-md">
         <table class="table-auto w-full">
           <thead>
             <tr>
@@ -154,88 +152,127 @@ function startNewSubtask(parentId: string) {
           </thead>
           <tbody>
             <template v-for="task in tasks" :key="task.id">
-              <!-- Parent Task Row -->
               <tr v-if="!task.parentId">
                 <td class="p-2 text-center">
-                  <button @click="toggleExpand(task.id)">
-                    <component :is="expandedTasks[task.id] ? ChevronDown : ChevronRight" class="h-4 w-4" />
-                  </button>
+                  <Button
+                    @click="toggleExpand(task.id)"
+                    variant="outline"
+                    size="icon"
+                  >
+                    <component
+                      :is="expandedTasks[task.id] ? ChevronDown : ChevronRight"
+                      class="h-4 w-4"
+                    />
+                  </Button>
                 </td>
                 <td class="p-2">{{ task.title }}</td>
                 <td class="p-2 text-center">
                   <input type="checkbox" v-model="task.done" />
                 </td>
-                <td class="p-2 text-center">
-                  <button @click="editTask(task)">
+                <td class="p-2 text-center" variant="outline" size="icon">
+                  <Button @click="editTask(task)" variant="outline" size="icon">
                     <Edit class="h-4 w-4" />
-                  </button>
+                  </Button>
                 </td>
                 <td class="p-2 text-center">
-                  <button @click="deleteTask(task)">
+                  <Button
+                    @click="deleteTask(task)"
+                    variant="outline"
+                    size="icon"
+                  >
                     <Trash class="h-4 w-4" />
-                  </button>
+                  </Button>
                 </td>
                 <td class="p-2 text-center">
-                  <button @click="startNewSubtask(task.id)">
+                  <Button
+                    @click="startNewSubtask(task.id)"
+                    variant="outline"
+                    size="icon"
+                  >
                     <PlusCircle class="h-4 w-4" />
-                  </button>
+                  </Button>
                 </td>
               </tr>
 
-              <!-- Subtask Rows -->
-              <tr v-for="subtask in getSubtasks(task.id)" v-if="expandedTasks[task.id]" :key="subtask.id">
+              <tr
+                v-for="subtask in getSubtasks(task.id)"
+                v-if="expandedTasks[task.id]"
+                :key="subtask.id"
+              >
                 <td class="p-2"></td>
                 <td class="p-2 pl-6">{{ subtask.title }}</td>
                 <td class="p-2 text-center">
                   <input type="checkbox" v-model="subtask.done" />
                 </td>
                 <td class="p-2 text-center">
-                  <button @click="editTask(subtask)">
+                  <Button
+                    @click="editTask(subtask)"
+                    variant="outline"
+                    size="icon"
+                  >
                     <Edit class="h-4 w-4" />
-                  </button>
+                  </Button>
                 </td>
                 <td class="p-2 text-center">
-                  <button @click="deleteTask(subtask)">
+                  <Button
+                    @click="deleteTask(subtask)"
+                    variant="outline"
+                    size="icon"
+                  >
                     <Trash class="h-4 w-4" />
-                  </button>
+                  </Button>
                 </td>
                 <td class="p-2"></td>
               </tr>
             </template>
           </tbody>
         </table>
-
       </div>
 
-      <!-- Input for new task (Parent or Subtask) -->
-      <div v-if="addingTask" class="mt-4 p-4 border rounded-md">
-        <h2 class="text-lg font-semibold">
+      <div v-if="addingTask" class="mt-4 p-5 border rounded-md">
+        <h2 class="text-lg font-semibold mb-4">
           {{ newTaskParentId ? "Add Subtask" : "Add New Main Task" }}
         </h2>
-        <input type="text" v-model="newTaskTitle" placeholder="Enter task title"
-          class="w-full border p-2 rounded mt-2 text-gray-800" />
-        <div class="flex justify-between space-x-2 w-full">
-          <button @click="addTask" class="mt-2 bg-blue-500 text-white px-4 py-2 rounded-md">
-            Add Task
-          </button>
-          <button @click="addingTask = false" class="mt-2 bg-red-500 text-white px-4 py-2 rounded-md">
-            Cancel
-          </button>
+        <Input
+          type="text"
+          v-model="newTaskTitle"
+          placeholder="Enter task title"
+        />
+        <div class="flex justify-end w-full space-x-2 mt-4">
+          <div>
+            <Button
+              @click="addingTask = false"
+              class="m-2"
+              variant="destructive"
+            >
+              Cancel
+            </Button>
+
+            <Button @click="addTask" class="m-2"> Add Task </Button>
+          </div>
         </div>
       </div>
 
-      <!-- Edit Dialog -->
-      <div v-if="editingTask" class="fixed inset-0 bg-gray-800 bg-opacity-75 flex justify-center items-center">
-        <div class="bg-white p-4 rounded-lg shadow-lg w-96">
-          <h2 class="text-lg font-bold mb-2">Edit Task</h2>
-          <input type="text" v-model="editingTask.title" class="w-full border p-2 rounded mb-4" />
-          <div class="flex justify-end space-x-2">
-            <button @click="cancelEdit" class="px-4 py-2 bg-gray-300 rounded">
-              Cancel
-            </button>
-            <button @click="saveTask" class="px-4 py-2 bg-blue-500 text-white rounded">
-              Save
-            </button>
+      <div
+        v-if="editingTask"
+        class="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center"
+      >
+        <div
+          class="bg-background border border-border p-5 rounded-lg shadow-lg w-96"
+        >
+          <h2 class="text-lg font-bold mb-4">Edit Task</h2>
+          <Input
+            type="text"
+            v-model="editingTask.title"
+            placeholder="Enter task title"
+          />
+          <div class="flex justify-end w-full space-x-2 mt-4">
+            <div>
+              <Button @click="cancelEdit" class="m-2" variant="destructive">
+                Cancel
+              </Button>
+              <Button @click="saveTask" class="m-2"> Save </Button>
+            </div>
           </div>
         </div>
       </div>
