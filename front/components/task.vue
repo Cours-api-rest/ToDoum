@@ -149,7 +149,7 @@ const addSubtask = async () => {
     });
 
     if (!props.task.children) props.task.children = [];
-    props.task.children.push(childTodo.data);
+    props.task.children.push(childTodo);
 
     haveChildren.value = true;  // Update the parent task to reflect that it has subtasks
     closeModal();

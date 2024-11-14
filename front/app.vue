@@ -37,7 +37,7 @@ async function addTask() {
 
   try {
     const response = await createTodo(newTask);
-    tasks.value.push(response.data);
+    tasks.value.push(response);
     newTaskTitle.value = "";
     newTaskParentId.value = null;
     addingTask.value = false;
