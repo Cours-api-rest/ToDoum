@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ChevronDown, ChevronRight, Edit, PlusCircle, Trash } from "lucide-vue-next";
+import {  PlusCircle } from "lucide-vue-next";
 import { ref, onMounted } from "vue";
-import { createTodo, deleteTodo, fetchTodos } from '~/services/todoService';
+import { createTodo, fetchTodos } from '~/services/todoService';
 
+// Définir l'interface pour le type de tâche
 export interface TaskType {
   id: string;
   title: string;
@@ -12,21 +13,28 @@ export interface TaskType {
   children?: TaskType[];
 }
 
+// Définir les tâches comme une référence réactive
 const tasks = ref<TaskType[]>([]);
 
-onMounted(async () => {
+// Fonction pour charger les tâches depuis le serveur
+const loadTasks = async () => {
   try {
     const data = await fetchTodos();
     tasks.value = data;
   } catch (error) {
     console.error("Failed to fetch tasks:", error);
   }
-});
+};
 
+// Charger les tâches lors du montage du composant
+onMounted(loadTasks);
+
+// Variables réactives pour la gestion de l'ajout de tâches
 const addingTask = ref(false);
 const newTaskTitle = ref("");
 const newTaskParentId = ref<string | null>(null);
 
+// Fonction pour ajouter une nouvelle tâche
 async function addTask() {
   if (!newTaskTitle.value) return;
 
@@ -36,8 +44,8 @@ async function addTask() {
   };
 
   try {
-    const response = await createTodo(newTask);
-    tasks.value.push(response);
+    await createTodo(newTask);
+    await loadTasks(); // Recharger les tâches depuis le serveur
     newTaskTitle.value = "";
     newTaskParentId.value = null;
     addingTask.value = false;
@@ -46,38 +54,15 @@ async function addTask() {
   }
 }
 
+// Fonction pour gérer la suppression d'une tâche
 function handleDeleteTask(taskId: string) {
   const index = tasks.value.findIndex((t) => t.id === taskId);
   if (index !== -1) {
-    // const taskToDelete = tasks.value[index];
-
-    // // Suppression de la tâche via l'API
-    // deleteTodo(taskId).then(() => {
-    //   tasks.value.splice(index, 1); // Mise à jour de la tâche principale
-    //   if (taskToDelete.parentId) {
-    //     // Si c'est une sous-tâche, on la retire de l'array children de la tâche parente
-    //     const parentTask = tasks.value.find((t) => t.id === taskToDelete.parentId);
-    //     if (parentTask && parentTask.children) {
-    //       const childIndex = parentTask.children.findIndex(c => c.id === taskId);
-    //       if (childIndex !== -1) {
-    //         parentTask.children.splice(childIndex, 1);
-    //       }
-    //     }
-    //   }
-
-    //   // Vérifier si la tâche parente n'a plus de sous-tâches et la passer en mode simple
-    //   if (taskToDelete.children && taskToDelete.children.length === 0 && taskToDelete.parentId) {
-    //     const parentTask = tasks.value.find((t) => t.id === taskToDelete.parentId);
-    //     if (parentTask && parentTask.children) {
-    //       parentTask.children = [];
-    //     }
-    //   }
-    // }).catch((error) => {
-    //   console.error("Failed to delete task:", error);
-    // });
+    // Code de suppression de la tâche via l'API (commenté)
   }
 }
 
+// Fonction pour ajouter une sous-tâche
 function handleAddSubtask(subtask: TaskType, parentTask: TaskType) {
   if (!parentTask.children) {
     parentTask.children = [];
@@ -85,6 +70,7 @@ function handleAddSubtask(subtask: TaskType, parentTask: TaskType) {
   parentTask.children.push(subtask);
 }
 
+// Fonction pour éditer une tâche
 function editTask(task: TaskType) {
   const index = tasks.value.findIndex((t) => t.id === task.id);
   if (index === -1) return;
@@ -92,16 +78,19 @@ function editTask(task: TaskType) {
   tasks.value[index] = task;
 }
 
+// Fonction pour démarrer l'ajout d'une nouvelle tâche principale
 function startNewParentTask() {
   newTaskParentId.value = null;
   addingTask.value = true;
 }
 
+// Fonction pour démarrer l'ajout d'une nouvelle sous-tâche
 function startNewSubtask(parentId: string) {
   newTaskParentId.value = parentId;
   addingTask.value = true;
 }
 
+// Fonction pour basculer l'état de réalisation d'une tâche
 function toggleTaskDone(taskId: string) {
   const index = tasks.value.findIndex((t) => t.id === taskId);
   if (index === -1) return;
@@ -124,9 +113,8 @@ function toggleTaskDone(taskId: string) {
       </div>
 
       <div v-else class="tasks-list">
-        <!-- Assurez-vous que Task transmet bien les événements nécessaires -->
         <Task v-for="task in tasks" :key="task.id" :task="task" :all-tasks="tasks" @add-subtask="handleAddSubtask"
-          @edit-task="editTask" @delete-task="handleDeleteTask" @toggle-task-done="toggleTaskDone" />
+              @edit-task="editTask" @delete-task="handleDeleteTask" @toggle-task-done="toggleTaskDone" />
       </div>
 
       <div v-if="addingTask" class="mt-4 p-5 border rounded-md">
