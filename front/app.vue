@@ -33,8 +33,6 @@ async function addTask() {
   const newTask = {
     title: newTaskTitle.value,
     done: false,
-    createdAt: new Date(),
-    parentId: newTaskParentId.value || undefined,
   };
 
   try {
@@ -48,23 +46,43 @@ async function addTask() {
   }
 }
 
-async function handleDeleteTask(taskId: string) {
-  try {
-    await deleteTodo(taskId);
-    tasks.value = tasks.value.filter((t) => t.id !== taskId);
-  } catch (error) {
-    console.error("Failed to delete task:", error);
+function handleDeleteTask(taskId: string) {
+  const index = tasks.value.findIndex((t) => t.id === taskId);
+  if (index !== -1) {
+    const taskToDelete = tasks.value[index];
+
+    // Suppression de la tâche via l'API
+    deleteTodo(taskId).then(() => {
+      tasks.value.splice(index, 1); // Mise à jour de la tâche principale
+      if (taskToDelete.parentId) {
+        // Si c'est une sous-tâche, on la retire de l'array children de la tâche parente
+        const parentTask = tasks.value.find((t) => t.id === taskToDelete.parentId);
+        if (parentTask && parentTask.children) {
+          const childIndex = parentTask.children.findIndex(c => c.id === taskId);
+          if (childIndex !== -1) {
+            parentTask.children.splice(childIndex, 1);
+          }
+        }
+      }
+
+      // Vérifier si la tâche parente n'a plus de sous-tâches et la passer en mode simple
+      if (taskToDelete.children && taskToDelete.children.length === 0 && taskToDelete.parentId) {
+        const parentTask = tasks.value.find((t) => t.id === taskToDelete.parentId);
+        if (parentTask && parentTask.children) {
+          parentTask.children = [];
+        }
+      }
+    }).catch((error) => {
+      console.error("Failed to delete task:", error);
+    });
   }
 }
 
-function handleAddSubtask(subtask) {
-  const parentTask = tasks.value.find((t) => t.id === subtask.parentId);
-  if (parentTask) {
-    if (!parentTask.children) {
-      parentTask.children = [];
-    }
-    parentTask.children.push(subtask);
+function handleAddSubtask(subtask: TaskType, parentTask: TaskType) {
+  if (!parentTask.children) {
+    parentTask.children = [];
   }
+  parentTask.children.push(subtask);
 }
 
 function editTask(task: TaskType) {
@@ -106,22 +124,13 @@ function toggleTaskDone(taskId: string) {
       </div>
 
       <div v-else class="tasks-list">
-        <Task
-            v-for="task in tasks.filter(t => !t.parentId)"
-            :key="task.id"
-            :task="task"
-            :all-tasks="tasks"
-            @add-subtask="handleAddSubtask"
-            @edit-task="editTask"
-            @delete-task="handleDeleteTask"
-            @toggle-task-done="toggleTaskDone"
-        />
+        <!-- Assurez-vous que Task transmet bien les événements nécessaires -->
+        <Task v-for="task in tasks" :key="task.id" :task="task" :all-tasks="tasks" @add-subtask="handleAddSubtask"
+          @edit-task="editTask" @delete-task="handleDeleteTask" @toggle-task-done="toggleTaskDone" />
       </div>
 
       <div v-if="addingTask" class="mt-4 p-5 border rounded-md">
-        <h2 class="text-lg font-semibold mb-4">
-          {{ newTaskParentId ? "Add Subtask" : "Add New Main Task" }}
-        </h2>
+        <h2 class="text-lg font-semibold mb-4">Add New Main Task</h2>
         <Input type="text" v-model="newTaskTitle" placeholder="Enter task title" />
         <div class="flex justify-end w-full space-x-2 mt-4">
           <Button @click="addingTask = false" class="m-2" variant="destructive">
