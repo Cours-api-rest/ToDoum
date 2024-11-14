@@ -37,47 +37,51 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 
-export interface Payment {
+export interface tasks {
   id: string;
   createdAt: Date;
   title: string;
   done: boolean;
+  parentId?: string;
 }
 
-const data = ref<Payment[]>([
+const data: tasks[] = [
   {
-    id: "m5gr84i9",
-    title: "ken99@yahoo.com",
+    id: "parent1",
+    title: "Task Parent 1",
     done: false,
     createdAt: new Date("2021-01-01"),
   },
   {
-    id: "3u1reuv4",
-    title: "Abe45@gmail.com",
+    id: "subtask1",
+    title: "Subtask 1 of Parent 1",
     done: false,
-    createdAt: new Date("2021-01-02"),
+    createdAt: new Date("2021-01-01"),
+    parentId: "parent1",
   },
   {
-    id: "derv1ws0",
-    title: "Monserrat44@gmail.com",
+    id: "subtask2",
+    title: "Subtask 2 of Parent 1",
+    done: false,
+    createdAt: new Date("2021-01-02"),
+    parentId: "parent1",
+  },
+  {
+    id: "parent2",
+    title: "Task Parent 2",
     done: false,
     createdAt: new Date("2021-01-03"),
   },
   {
-    id: "5kma53ae",
-    title: "Silas22@gmail.com",
+    id: "subtask3",
+    title: "Subtask 1 of Parent 2",
     done: false,
     createdAt: new Date("2021-01-04"),
+    parentId: "parent2",
   },
-  {
-    id: "bhqecj4p",
-    title: "carmella@hotmail.com",
-    done: false,
-    createdAt: new Date("2021-01-05"),
-  },
-]);
+];
 
-const columnHelper = createColumnHelper<Payment>();
+const columnHelper = createColumnHelper<tasks>();
 
 const columns = [
   columnHelper.display({
@@ -91,15 +95,53 @@ const columns = [
         ariaLabel: "Select all",
       }),
     cell: ({ row }) => {
+      const toggleSelection = (value: boolean) => {
+        row.toggleSelected(value);
+        row.original.done = value;
+
+        if (!row.original.parentId) {
+          const parentId = row.original.id;
+          data.forEach((task) => {
+            if (task.parentId === parentId) {
+              task.done = value;
+              const childRow = table
+                .getRowModel()
+                .rows.find((r) => r.original.id === task.id);
+              if (childRow) {
+                childRow.toggleSelected(value);
+              }
+            }
+          });
+        } else {
+          const parentId = row.original.parentId;
+          const allSubtasksChecked = data
+            .filter((task) => task.parentId === parentId)
+            .every((subtask) => subtask.done);
+
+          const parentTask = data.find((task) => task.id === parentId);
+          if (parentTask) {
+            parentTask.done = allSubtasksChecked;
+            const parentRow = table
+              .getRowModel()
+              .rows.find((r) => r.original.id === parentId);
+            if (parentRow) {
+              parentRow.toggleSelected(allSubtasksChecked);
+            }
+          }
+        }
+        console.log("Checkbox clicked", row.original);
+      };
+
       return h(Checkbox, {
         checked: row.getIsSelected(),
-        "onUpdate:checked": (value) => row.toggleSelected(!!value),
         ariaLabel: "Select row",
+        "onUpdate:checked": (value) => toggleSelection(!!value),
       });
     },
     enableSorting: false,
     enableHiding: false,
   }),
+
   columnHelper.accessor("title", {
     header: ({ column }) => {
       return h(
@@ -111,14 +153,25 @@ const columns = [
         () => ["Title", h(ArrowUpDown, { class: "ml-2 h-4 w-4" })]
       );
     },
-    cell: ({ row }) => h("div", { class: "lowercase" }, row.getValue("title")),
+    cell: ({ row }) => {
+      const isSubtask = !!row.original.parentId;
+      const indentation = isSubtask ? "ml-6" : "";
+      return h(
+        "div",
+        { class: `${indentation} lowercase` },
+        row.getValue("title")
+      );
+    },
   }),
   columnHelper.accessor("createdAt", {
     header: () => h("div", { class: "text-right" }, "Created At"),
     cell: ({ row }) => {
       const createdAt = row.getValue("createdAt") as Date;
-      const formatted = new Intl.DateTimeFormat("en-US").format(createdAt);
-      return h("div", { class: "text-right font-medium" }, formatted);
+      return h(
+        "div",
+        { class: "text-right font-medium" },
+        createdAt.toLocaleDateString()
+      );
     },
   }),
   columnHelper.display({
@@ -137,6 +190,14 @@ const columns = [
     },
     enableSorting: false,
     enableHiding: false,
+  }),
+  columnHelper.display({
+    id: "actions",
+    enableHiding: false,
+    cell: ({ row }) => {
+      const tasks = row.original;
+      return h("div", { class: "relative" });
+    },
   }),
   columnHelper.display({
     id: "delete",
@@ -167,14 +228,14 @@ const columns = [
 ];
 
 const sorting = ref<SortingState>([]);
+const editingTask = ref<tasks | null>(null);
 const columnFilters = ref<ColumnFiltersState>([]);
 const columnVisibility = ref<VisibilityState>({});
 const rowSelection = ref({});
 const expanded = ref<ExpandedState>({});
-const editingTask = ref<Payment | null>(null);
 
 const table = useVueTable({
-  data: data.value,
+  data,
   columns,
   getCoreRowModel: getCoreRowModel(),
   getPaginationRowModel: getPaginationRowModel(),
@@ -206,22 +267,20 @@ const table = useVueTable({
       return expanded.value;
     },
     columnPinning: {
-      left: ["status"],
+      left: ["Done"],
     },
   },
 });
 
-function editTask(task: Payment) {
+function editTask(task: tasks) {
   editingTask.value = { ...task };
 }
 
 function saveTask() {
   if (editingTask.value) {
-    const index = data.value.findIndex(
-      (task) => task.id === editingTask.value!.id
-    );
+    const index = data.findIndex((task) => task.id === editingTask.value!.id);
     if (index !== -1) {
-      data.value[index] = editingTask.value;
+      data[index] = { ...editingTask.value };
     }
     editingTask.value = null;
   }
